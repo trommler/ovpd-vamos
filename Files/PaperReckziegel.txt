@@ -14,8 +14,40 @@ In the case we won`t give access to data if an entry in the database does not ex
 IMAGE ERD-Vamos
 
 
+Case time restriction
+
+If the access to data have a time restriction, we have to check the constraints of the record first.
+An example for this can be a digitial homework system. Let us introduce ourselves we have a Teacher who provides the homework and the pattern solution to that in a document system. The students have to upload her homework and after this, the can download the pattern solution but not before the uploaded the her homework. After the look on the pattern solution they can´t change or alter the uploaded homework. The Figure below demonstrate the example and we see each entity.
+
+IMAGE ERD-Homework
+
+
+Introduction to Oracle Virtual Private Database
+
+To understand the functionalty of this security feature we have to look on how it works.
+Cite!!!! To implement Oracle Virtual Private Database, you must create a function to generate the dynamic WHERE clause, and a policy to attach this function to the objects that you want to protect. 
+Cite!!!
+(security guide 2017, Oracle)
+#######
+in eigenge Worte gefasst:
+In the function we declare the dynamic where clause that defines these restrictions.
+And in the Policy we associates the function to a table, view or synonym.
+#######
+
+In the Figure below you see examples for each one for a better understanding.
+
+IMAGE Policy and function examples!!!!! get they from the turorial an 10.4 
 
 
 
+There are a some different types of policy.
 
+Input images => Images Table 10-2 (page 10-24) summarizes the types of policy types available. DBMS_RLS.ADD_POLICY Policy Types
+
+(security guide 2017, Oracle)
+
+
+Below are the knowledge from the pratice test on the prototype.
+
+images from the prototyp in SQL!
 
