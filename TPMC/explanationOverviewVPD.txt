@@ -34,7 +34,37 @@ IMG CaseBank.jpeg!
 
 Erreichen könnte man das bei der VPD mit diesem PL/SQL Code.
 ############
-SQL Case Bank.
+
+
+/*Case Bank*/
+/*Create Tables*/
+CREATE TABLE bank_customers (   cust_no NUMBER(4),
+                                cust_lastName VARCHAR2(20),
+                                cust_firstName VARCHAR2(20)
+                            );
+                            
+CREATE TABLE bank_account   (   iban NUMBER(32),
+                                owner VARCHAR2(20),
+                                account_type VARCHAR2(20)
+                            );
+
+CREATE TABLE transaktion   (    transactionID NUMBER(32),
+                                positionAccount VARCHAR2(20),
+                                amount Number(32),
+                                recipient VARCHAR2(20),
+                                purpose VARCHAR2(20)
+                            );
+
+
+
+/*Insert example records */
+
+INSERT INTO bank_customers VALUES (1234, 'Euler', 'Leonhard'); 
+INSERT INTO bank_customers VALUES (5678, 'Einstein', 'Albert');
+INSERT INTO bank_customers VALUES (5678, 'Cooper', 'Sheldon');
+
+/*Access on bank_customers */
+GRANT READ ON bank_customers TO Euler, Einstein, Cooper;
 ###############
 
 
