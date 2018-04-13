@@ -1,22 +1,37 @@
 Einleitung
 
-Die VPD von Oracle ist eine in der Oracle DB enterprise 12c integriert Sicherheitsfunktionalität die ankommende SQL Querys auf ein bestimmtes Objekt (zb. Tabelle oder View) mit vorher definierten Parametern erweitert, um den Zugriff einzuschränken. Diese Parameter können sowohl statisch eingegeben, als auch dynamisch anhand vom Context generiert werden.
 
-Dazu wird zuerst in Oracle PL/SQL eine Function implementiert die diese Einschränkung fachlich vornimmt. Anschließend wird diese Function einer Oracle Policy zugewiesen. Einer Tabelle oder View kann diese Policy oder eine Gruppe von Policys zugewiesen werden. Ab diesem Zeitpunkt werden eintreffende SQL Query auf diese Objekt durch die Policy geschleust und es wird eine erhöhte Spalten/Zeilen Sicherheit erreicht.
-
-In anderem DBMS würde man sowas mit stored Prozedures und/oder Query rewriting umsetzen. Dies betrachten wir aber in diesem Paper nicht weiter.
-
-
-Anhand des Usecases von Bankkunden wird das vielleicht deutlicher:
+Wir gehen davon aus das es bei einer Bank die Entitäten "Bank Customer", "Bank Account" und "Transaction" gibt.
+Der Customer wird mit der Customer Number, der Account über seine IBAN und die Transaction über eine ID eindeutig identifiziert.
 
 IMG CASE BANK
 
-Wir gehen davon aus das es bei einer Bank die Entitäten "Bank Customer", "Bank Account" und "Transaction" gibt.
-Der Customer wird mit der Customer Number, der Account über seine IBAN und die Transaction über eine ID eindeutig identifiziert. Stellt nun der Customer eine Anfrage über die Bankwebseite an die Datenbank mit VPD um seine Konten zu sehen, wird seine Customer Number als anker object genommen und der Query als Where Clausel seine ID mit hinzugefügt.
-Das heißt selbst wenn jemand die SQL Query vorher manipuliert hat, wird diese durch die Where Clausel so eingeschränkt das er nur seine Accounts sieht. Fragt der Customer nun die einzelnen Transactionen seiner Accounts ab, über die SQL Query die zu dem Customer gehörigen Accounts mit gegeben, womit auch hier die nur die Transactionen angezeigt werden können, für die der Customer die Berechtigungen hat. 
+Ruf der Customer mit der ID "1" die Bankwebseite auf, loggt sich ein und will alle seine Konten anzeigen lassen, geniert die Webseite eine HTTP-Request für den Applicationserver. Wird dieser nun abgefangen und so manipuliert das in der SQL-Query nicht show Accounts from ID "1" sondern ID "2" steht, könnte die Datenbank überlistet werden und der Customer sieht nun Accounts für die er kein Zugriff hat. Dieser Brocken-Access-Controll beschreibt auch OWASP Top 5 Szenario 1. Um dies zu verhindern wollen wir in der Datenbank die Querys als Secound line of defense nochmalig überprüfen, wobei wir aber die "wirkliche" ID, in unserem Case die "1" außerhalb der SQL Query brauchen.
+In nächsten Abschnitt befassen wir uns mit einer DB die uns bei der erneuten Überprüfung der Query behilflich sein kann.
+
+Umsetzung mit VPD
+
+Die Virtual Private Database (VPD) von Oracle ist eine in der Oracle DB enterprise 12c integriert Sicherheitsfunktionalität die ankommende SQL Querys auf ein bestimmtes Objekt (zb. Tabelle oder View) mit vorher definierten Parametern erweitert, um den Zugriff einzuschränken. Diese Parameter können sowohl statisch eingegeben, als auch dynamisch anhand vom Context generiert werden.
+
+Dazu wird zuerst in Oracle PL/SQL eine Function implementiert die diese Einschränkung fachlich vornimmt. Diese Funktion enthält die eigentliche Logik wie die Query mit den Input Parameter erweitert werden soll. Anschließend wird diese Function einer Oracle Policy zugewiesen. Einer Tabelle oder View kann diese Policy oder eine Gruppe von Policys zugewiesen werden. Ab diesem Zeitpunkt werden eintreffende SQL Query auf diese Objekt durch die Policy geschleust und es wird eine erhöhte Spalten/Zeilen Sicherheit erreicht. Für unterschiedliche Einsatzzwecke gibt es 5 verschieden Arten von Policys im Oracle Paket DBMS_RLS, die hier in Kurzfassung aufgelistet sind:
+
+- Dynamic 					=> Hier wird bei jeder Query das Predicate neu berechnet, Langsam aber wichtig bei 								zeitlichen abhängigkeiten ( Prüfungszeitraum usw.)
+- Static 					=> Hier wird das Predicate gecached und die Last reduziert
+- Shared_Static 			=> wie static aber kann auf mehreren Objecten der Datenbank genutzt werden ( Big Data)
+- Context_Sensitive 		=> Wird beim Parsen und beim context change neu berechnet, interessant bei Three-tier 								Architektur und Session Pooling für unterschiedliche Gruppen innerhalb der Applikation
+- Shared_Context_Sensitive 	=> Wird beim ersten referenzieren des objectes berechnet, geeignet wieder Policys mit 								mehreren Objectes
+
+Quelle ( Security Guide Policy Types diagramm)
+
+Allgemein gesprochen wird bei jeder SQL Query in der Where Clausel eine weitere Bedingung hinzugefügt die nur Zugriff auf diese Datensätze ermöglicht, welche eindeutig zu der initial übermittelten ID referenziert werden kann.
+In anderem DBMS könnte man sowas mit stored Prozedures und/oder Query rewriting umsetzen. Wir beschäftigen uns in diesem Paper aber nur mit der VPD von Oracle.
 
 
-case Bank.numbers
+
+
+
+
+
 
 
 
@@ -27,6 +42,10 @@ Nun das passende SQL für das oben genannte Beispiel:
 SQL Case Bank.
 
 
+
+******OFFENE Punkte ***
+- Statement typs enforces weil default (keine explizite angabe der typen) erlaubt allen "index", sicherheitslücke!
+- 
 
 
 
