@@ -1,1 +1,34 @@
-sd
+Einleitung
+
+Die VPD von Oracle ist eine in der Oracle DB enterprise 12c integriert Sicherheitsfunktionalität die ankommende SQL Querys auf ein bestimmtes Objekt (zb. Tabelle oder View) mit vorher definierten Parametern erweitert, um den Zugriff einzuschränken. Diese Parameter können sowohl statisch eingegeben, als auch dynamisch anhand vom Context generiert werden.
+
+Dazu wird zuerst in Oracle PL/SQL eine Function implementiert die diese Einschränkung fachlich vornimmt. Anschließend wird diese Function einer Oracle Policy zugewiesen. Einer Tabelle oder View kann diese Policy oder eine Gruppe von Policys zugewiesen werden. Ab diesem Zeitpunkt werden eintreffende SQL Query auf diese Objekt durch die Policy geschleust und es wird eine erhöhte Spalten/Zeilen Sicherheit erreicht.
+
+In anderem DBMS würde man sowas mit stored Prozedures und/oder Query rewriting umsetzen. Dies betrachten wir aber in diesem Paper nicht weiter.
+
+
+Anhand des Usecases von Bankkunden wird das vielleicht deutlicher:
+
+IMG CASE BANK
+
+Wir gehen davon aus das es bei einer Bank die Entitäten "Bank Customer", "Bank Account" und "Transaction" gibt.
+Der Customer wird mit der Customer Number, der Account über seine IBAN und die Transaction über eine ID eindeutig identifiziert. Stellt nun der Customer eine Anfrage über die Bankwebseite an die Datenbank mit VPD um seine Konten zu sehen, wird seine Customer Number als anker object genommen und der Query als Where Clausel seine ID mit hinzugefügt.
+Das heißt selbst wenn jemand die SQL Query vorher manipuliert hat, wird diese durch die Where Clausel so eingeschränkt das er nur seine Accounts sieht. Fragt der Customer nun die einzelnen Transactionen seiner Accounts ab, über die SQL Query die zu dem Customer gehörigen Accounts mit gegeben, womit auch hier die nur die Transactionen angezeigt werden können, für die der Customer die Berechtigungen hat. 
+
+
+case Bank.numbers
+
+
+
+Daraus kann man ableiten das man nun eine Row-Level-Security besteht. Grundlegend ist es auch möglich vorher definierte Spalten für manchen User gar nicht bzw. nur als "Null" zurückzugeben, dies kann aber zu unerwartete Fehler in der Anwendung führen, sollte diese solche Answers falsch interpretieren.
+
+Nun das passende SQL für das oben genannte Beispiel:
+
+SQL Case Bank.
+
+
+
+
+
+
+
