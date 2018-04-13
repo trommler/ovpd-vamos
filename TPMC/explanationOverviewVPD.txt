@@ -1,13 +1,17 @@
 Einleitung
 
+Angenommen wir haben eine klassische Three-Tier-Architectur mit einem Browser, einen Application-Server und einem Datenbankserver. Auf dieser Architektur betreiben wir unsere Endanwender Anwendung für unsere Bank.
+Der Customer kann seine Accounts und Transactionen für die einzelnen Accounts online über die Webseite abfragen.
 
-Wir gehen davon aus das es bei einer Bank die Entitäten "Bank Customer", "Bank Account" und "Transaction" gibt.
+Wir gehen davon aus das es bei unsere Anwendung die Entitäten "Bank Customer", "Bank Account" und "Transaction" gibt.
 Der Customer wird mit der Customer Number, der Account über seine IBAN und die Transaction über eine ID eindeutig identifiziert.
 
+Das Bild below zeigt das ERD-Diagramm zu unserem Case.
 IMG CASE BANK
 
-Ruf der Customer mit der ID "1" die Bankwebseite auf, loggt sich ein und will alle seine Konten anzeigen lassen, geniert die Webseite eine HTTP-Request für den Applicationserver. Wird dieser nun abgefangen und so manipuliert das in der SQL-Query nicht show Accounts from ID "1" sondern ID "2" steht, könnte die Datenbank überlistet werden und der Customer sieht nun Accounts für die er kein Zugriff hat. Dieser Brocken-Access-Controll beschreibt auch OWASP Top 5 Szenario 1. Um dies zu verhindern wollen wir in der Datenbank die Querys als Secound line of defense nochmalig überprüfen, wobei wir aber die "wirkliche" ID, in unserem Case die "1" außerhalb der SQL Query brauchen.
-In nächsten Abschnitt befassen wir uns mit einer DB die uns bei der erneuten Überprüfung der Query behilflich sein kann.
+Ruf der Customer mit der ID "1" die Bankwebseite auf, loggt sich ein und will alle seine Konten anzeigen lassen, geniert die Webseite eine HTTP-Request für den Applicationserver. Wird dieser nun abgefangen und so manipuliert das in der SQL-Query nicht show Accounts from ID "1" sondern ID "2" steht, könnte die Datenbank überlistet werden und der Customer sieht nun Accounts für die er kein Zugriff hat. Dieser Brocken-Access-Controll beschreibt auch OWASP Top 5 Szenario 1. 
+Um dies zu verhindern wollen wir in der Datenbank die Querys als Secound line of defense nochmalig überprüfen.
+Als Lösung schlagen Roichman and Gudes Parameterized Views vor [Quelle (Fine-grained Access Control to Web Databases)], was wir mit der Virtual Private Database (VPD) von Oracle im nächsten Abschnitt versuchen umzusetzen.
 
 Umsetzung mit VPD
 
@@ -23,29 +27,33 @@ Dazu wird zuerst in Oracle PL/SQL eine Function implementiert die diese Einschr�
 
 Quelle ( Security Guide Policy Types diagramm)
 
+
+Daraus kann man ableiten das man nun eine Row-Level-Security besteht, die in der Abbildung below dargestellt wird:
+
+IMG CaseBank.jpeg!
+
+Erreichen könnte man das bei der VPD mit diesem PL/SQL Code.
+############
+SQL Case Bank.
+###############
+
+
+
+***Vielleicht als ergänzung *****
+Grundlegend ist es auch möglich vorher definierte Colums für manchen User gar nicht bzw. nur als "Null" zurückzugeben. Die hier erreichte Row/Colum-Level-Security dies kann aber zu unerwartete Fehler in der Anwendung führen, sollte diese solche Antworten falsch interpretieren oder nicht abfangen.
+***********************************
+
+
+
+Umsetzung Allgemein
+
 Allgemein gesprochen wird bei jeder SQL Query in der Where Clausel eine weitere Bedingung hinzugefügt die nur Zugriff auf diese Datensätze ermöglicht, welche eindeutig zu der initial übermittelten ID referenziert werden kann.
 In anderem DBMS könnte man sowas mit stored Prozedures und/oder Query rewriting umsetzen. Wir beschäftigen uns in diesem Paper aber nur mit der VPD von Oracle.
 
 
-
-
-
-
-
-
-
-
-Daraus kann man ableiten das man nun eine Row-Level-Security besteht. Grundlegend ist es auch möglich vorher definierte Spalten für manchen User gar nicht bzw. nur als "Null" zurückzugeben, dies kann aber zu unerwartete Fehler in der Anwendung führen, sollte diese solche Answers falsch interpretieren.
-
-Nun das passende SQL für das oben genannte Beispiel:
-
-SQL Case Bank.
-
-
-
 ******OFFENE Punkte ***
 - Statement typs enforces weil default (keine explizite angabe der typen) erlaubt allen "index", sicherheitslücke!
-- 
+- SQL
 
 
 
