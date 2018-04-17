@@ -47,6 +47,8 @@ Quelle ( Security Guide Policy Types diagramm)
 Bei der prodecure DBMS_RLS.ADD_POLICY ist es wichtig das man die statement_types (SELECT, INSERT, UPDATE, INDEX, and DELETE) explizit angibt, für die diese Policy gelten soll, lässt man die Werte auf Default, dann gilt  die Policy nicht für INDEX, was wieder rum eine Sicherheitslücke darstellen kann. 
 ***************************************
 
+Quelle (Securityguide 12c 2017)
+
 Neben den oben genannten Policy Typen, die sich hauptsächlich durch die Verarbeitung und Performance (zb. Caching) unterscheiden, gibt es noch unterschiedliche Arten von Contexten.
 
 Local Application Context (LAC), Global Application Context (GAC) und Client-Session Based Applicatin Context (CSBAC). Wir haben uns für den GAC entschieden, da dieser Context für unsere 3-Tier-Architektur mit Connectionspools am besten geeignet ist.
