@@ -24,7 +24,7 @@ In PV spielt die Parameter Methode die größte Rolle da sie die eigentliche Ein
 
 Um nun ein Object like a table,view oder synonym mit dieser Policy-function zu schützen, d.h. eine PV zu erzeugen, wird die Policy-function mit hilfe der DBMS_RLS.ADD_POLICY procedure über eine VPD-Policy einem Object like a table,view oder synonyms zugewiesen werden. Dies garantiert das die Policy-function can not be bypass from the query and a valide predicate must be append on every Query. The Parameters Tampering attack wich was described in Broken Access control (BAC)(OWASP top 5,sezenario 1) and (Roichman und Gudes), can now detected and the attacker can´t see other data outside the PV with Datarecords which contains releated Information to his AS-key/ID. Das führt zu einer Row-Level-Security, da nur Rows des aktuell authorisierten Users angezeigt werden.
 
-***Vielleicht als ergänzung *****
+***Vielleicht als Ergänzung *****
 Grundlegend ist es auch möglich vorher definierte Colums für manchen User gar nicht bzw. nur als "Null" zurückzugeben. Die hier erreichte Row/Colum-Level-Security dies kann aber zu unerwartete Fehler in der Anwendung führen, sollte diese solche Antworten falsch interpretieren oder nicht abfangen.
 ***********************************
 
@@ -49,7 +49,7 @@ Bei der prodecure DBMS_RLS.ADD_POLICY ist es wichtig das man die statement_types
 
 Quelle (Securityguide 12c 2017)
 
-Neben den oben genannten Policy Typen, die sich hauptsächlich durch die Verarbeitung und Performance (zb. Caching) unterscheiden, gibt es noch unterschiedliche Arten von Contexten.
+Neben den oben genannten Policy Typen, die sich Hauptsächlich durch die Verarbeitung und Performance (zb. Caching) unterscheiden, gibt es noch unterschiedliche Arten von Contexten.
 
 Local Application Context (LAC), Global Application Context (GAC) und Client-Session Based Applicatin Context (CSBAC). Wir haben uns für den GAC entschieden, da dieser Context für unsere 3-Tier-Architektur mit Connectionspools am besten geeignet ist.
 
@@ -57,7 +57,7 @@ Quelle ( Das umfassende Handbuch 12c 11.3.1 Applications Context)
 
 
 
-
+IMG CaseBank.jpeg!
 
 Nun wollen wir uns anhand des Beispiels mit den Bankkunden/Bankkonten eine VPD in PL/SQL Code mal anschauen.
 
@@ -143,12 +143,6 @@ orders_pred := 'cust_no = SYS_CONTEXT(''orders_ctx'', ''cust_no'')'; RETURN orde
 END;
 
 
-IMG CaseBank.jpeg!
-
-
-
-******OFFENE Punkte ***
-- SQL
 
 
 
@@ -161,7 +155,8 @@ Allgemein gesprochen wird bei jeder SQL Query in der Where Clausel eine weitere 
 In anderem DBMS könnte man sowas mit stored Prozedures und/oder Query rewriting umsetzen. Wir beschäftigen uns in diesem Paper aber nur mit der VPD von Oracle.
 
 
-
+******OFFENE Punkte ***
+- SQL
 
 
 
