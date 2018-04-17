@@ -9,7 +9,7 @@ Der Customer wird mit der Customer Number, der Account über seine IBAN und die 
 Das Bild below zeigt das ERD-Diagramm zu unserem Case.
 IMG CASE BANK
 
-Ruf der Customer mit der ID "1" die Bankwebseite auf, loggt sich ein und will alle seine Konten anzeigen lassen, geniert die Webseite eine HTTP-Request für den Applicationserver. Wird dieser nun abgefangen und so manipuliert das in der SQL-Query nicht show Accounts from ID "1" sondern ID "2" steht, könnte die Datenbank überlistet werden und der Customer sieht nun Accounts für die er kein Zugriff hat. Dieser Brocken-Access-Controll beschreibt auch OWASP Top 5 Szenario 1. 
+Ruft der Customer mit der ID "1" die Bankwebseite auf, loggt sich ein und will alle seine Konten anzeigen lassen, geniert die Webseite eine HTTP-Request für den Applicationserver. Wird dieser nun abgefangen und so manipuliert das in der SQL-Query nicht show Accounts from ID "1" sondern ID "2" steht, könnte die Datenbank überlistet werden und der Customer sieht nun Accounts für die er kein Zugriff hat. Dieser Brocken-Access-Controll beschreibt auch OWASP Top 5 Szenario 1. 
 Um dies zu verhindern wollen wir in der Datenbank die Querys als Secound line of defense nochmalig überprüfen.
 Als Lösung schlagen Roichman and Gudes Parameterized Views vor [Quelle (Fine-grained Access Control to Web Databases)], was wir mit der Virtual Private Database (VPD) von Oracle im nächsten Abschnitt versuchen umzusetzen.
 
@@ -22,9 +22,13 @@ Eine wichtige Vorraussetzung für PV ist, das der Datenbank (DB) die Authentifia
 
 In PV spielt die Parameter Methode die größte Rolle da sie die eigentliche Einschränkung mit Query rewriting erwirkt. Oracle net dies die VPD-Policy-Function. In dieser werden die Input Parameter( schema, object) festgelegt und der Return wert ( must be from Typ VARCHAR2) bestimmt. 
 
-Um nun ein Object like a table,view oder synonym mit dieser Policy-function zu schützen, d.h. eine PV zu erzeugen, wird die Policy-function mit hilfe der DBMS_RLS.ADD_POLICY procedure über eine VPD-Policy einem Object like a table,view oder synonyms zugewiesen werden. Dies garantiert das die Policy-function can not be bypass from the query and a valide predicate must be append on every Query. The Parameters Tampering attack wich was described in Broken Access control (BAC)(OWASP top 5,sezenario 1) and (Roichman und Gudes), can now detected and the attacker can´t see other data outside the PV with Datarecords which contains releated Information to his AS-key/ID.
+Um nun ein Object like a table,view oder synonym mit dieser Policy-function zu schützen, d.h. eine PV zu erzeugen, wird die Policy-function mit hilfe der DBMS_RLS.ADD_POLICY procedure über eine VPD-Policy einem Object like a table,view oder synonyms zugewiesen werden. Dies garantiert das die Policy-function can not be bypass from the query and a valide predicate must be append on every Query. The Parameters Tampering attack wich was described in Broken Access control (BAC)(OWASP top 5,sezenario 1) and (Roichman und Gudes), can now detected and the attacker can´t see other data outside the PV with Datarecords which contains releated Information to his AS-key/ID. Das führt zu einer Row-Level-Security, da nur Rows des aktuell authorisierten Users angezeigt werden.
 
-Natürlich ist es noch immer möglich SQL-Injection Attacken zu fahren, diese werden hier aber nicht nähere betrachtet, da Sie relativ einfach verhindert (z.b. durch Prepared Statements),leichter erkennbar sind als BAC´s und auf daten andere keine auswirkung mehr haben, weil die PV nur noch die Daten der anfragenenden ID zurückgibt.
+***Vielleicht als ergänzung *****
+Grundlegend ist es auch möglich vorher definierte Colums für manchen User gar nicht bzw. nur als "Null" zurückzugeben. Die hier erreichte Row/Colum-Level-Security dies kann aber zu unerwartete Fehler in der Anwendung führen, sollte diese solche Antworten falsch interpretieren oder nicht abfangen.
+***********************************
+
+Natürlich ist es noch immer möglich SQL-Injection Attacken zu fahren, diese werden hier aber nicht nähere betrachtet, da Sie relativ einfach verhindert (z.b. durch Prepared Statements, leichter erkennbar sind als BAC´s und auf Daten anderer keine Auswirkung mehr haben, weil die PV nur noch die Daten der anfragenenden ID zurückgibt.
 
 
 Policy Typen der VPD
@@ -39,24 +43,24 @@ Für unterschiedliche Einsatzzwecke gibt es 5 verschieden Arten von Policys im O
 
 Quelle ( Security Guide Policy Types diagramm)
 
+****hint to enforce Statement types****
+Bei der prodecure DBMS_RLS.ADD_POLICY ist es wichtig das man die statement_types (SELECT, INSERT, UPDATE, INDEX, and DELETE) explizit angibt, für die diese Policy gelten soll, lässt man die Werte auf Default, dann gilt  die Policy nicht für INDEX, was wieder rum eine Sicherheitslücke darstellen kann. 
+***************************************
 
+Neben den oben genannten Policy Typen, die sich hauptsächlich durch die Verarbeitung und Performance (zb. Caching) unterscheiden, gibt es noch unterschiedliche Arten von Contexten.
 
-There are totally three general types of application contexts available in the Oracle database and they are,
- 
-·         Local Application Contexts: These contexts are available only in the creator’s session and these are stored in the UGA part of the memory.
- 
-·         Global Application Contexts: These contexts can be accessed by all session users. Thus, these are stored in the SGA part of the memory.
- 
-·         Client-Session Based Application Contexts: This context uses OCI (Oracle Call Interface) functions on the client side to set the context parameters to perform the necessary security check for restricting the user access. This type of context is also stored in the SGA memory.
+Local Application Context (LAC), Global Application Context (GAC) und Client-Session Based Applicatin Context (CSBAC). Wir haben uns für den GAC entschieden, da dieser Context für unsere 3-Tier-Architektur mit Connectionspools am besten geeignet ist.
 
 Quelle ( Das umfassende Handbuch 12c 11.3.1 Applications Context)
 
 
-Erreichen könnte man das bei der VPD mit diesem PL/SQL Code.
+
+
+
+Nun wollen wir uns anhand des Beispiels mit den Bankkunden/Bankkonten eine VPD in PL/SQL Code mal anschauen.
 
 ############ begin code listing
 /*Case Bank*/
-
 
 /*Create Tablespace*/
 /* 'Datafile' define the path to your db, in this case 'orcl' = myDB*/
@@ -96,9 +100,6 @@ RANT CREATE SESSION TO Euler, Einstein, Cooper;
 GRANT READ ON bank_customers TO 
 ###############
 
-
-
-
 /*Create application context*/
 CREATE OR REPLACE CONTEXT bank_accounts_ctx USING bank_accounts_ctx_pkg;
 
@@ -132,9 +133,6 @@ BEGIN
 	bank_accounts_ctx_pkg.set_ctx;
 END;
 
-
-
-
 CREATE OR REPLACE FUNCTION get_user_orders( schema_p IN VARCHAR2,
 table_p IN VARCHAR2)
 RETURN VARCHAR2 AS
@@ -143,62 +141,16 @@ orders_pred := 'cust_no = SYS_CONTEXT(''orders_ctx'', ''cust_no'')'; RETURN orde
 END;
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-SELECT USERNAME, ACCOUNT_STATUS FROM DBA_USERS WHERE USERNAME = 'SCOTT';
-
-ALTER USER SCOTT ACCOUNT UNLOCK IDENTIFIED BY password;
-
-INSERT INTO orders_tab VALUES (1234, 9876); INSERT INTO orders_tab VALUES (5678, 5432); INSERT INTO orders_tab VALUES (5678, 4592);
-
-
-
-
-
-
-
-
-
-
-
-
-***Vielleicht als ergänzung *****
-Grundlegend ist es auch möglich vorher definierte Colums für manchen User gar nicht bzw. nur als "Null" zurückzugeben. Die hier erreichte Row/Colum-Level-Security dies kann aber zu unerwartete Fehler in der Anwendung führen, sollte diese solche Antworten falsch interpretieren oder nicht abfangen.
-***********************************
-
-
-Daraus kann man ableiten das man nun eine Row-Level-Security besteht, die in der Abbildung below dargestellt wird:
-
 IMG CaseBank.jpeg!
 
 
 
 ******OFFENE Punkte ***
-- Statement typs enforces weil default (keine explizite angabe der typen) erlaubt allen "index", sicherheitslücke!
 - SQL
 
 
 
-
-
-
 Dazu wird zuerst in Oracle PL/SQL eine Function implementiert die diese Einschränkung fachlich vornimmt. Diese Funktion enthält die eigentliche Logik wie die Query mit den Input Parameter erweitert werden soll. Anschließend wird diese Function einer Oracle Policy zugewiesen. Einer Tabelle oder View kann diese Policy oder eine Gruppe von Policys zugewiesen werden. Ab diesem Zeitpunkt werden eintreffende SQL Query auf diese Objekt durch die Policy geschleust und es wird eine erhöhte Spalten/Zeilen Sicherheit erreicht. 
-
-
-
-
-
-
 
 
 Umsetzung Allgemein
