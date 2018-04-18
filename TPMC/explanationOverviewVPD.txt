@@ -70,81 +70,119 @@ CREATE SMALLFILE TABLESPACE case_bank
 DATAFILE '/u01/app/oracle/oradata/orcl/case_bank.dbf' SIZE 20M
 AUTOEXTEND ON NEXT 200K MAXSIZE 2000M;
 
+/*Create new User for our example and use our new Tablespace*/
+CREATE USER C##app_bank 
+   IDENTIFIED BY pwd4_app_bank
+   DEFAULT TABLESPACE case_bank
+   QUOTA 20M ON case_bank;
 
-/*Create Tables*/
-CREATE TABLE bank_customers (   cust_no NUMBER(4),
-                                cust_lastName VARCHAR2(20),
-                                cust_firstName VARCHAR2(20)
-                            );
+/*Grant privileges to the new user*/
+GRANT create session TO C##app_bank;
+GRANT create table TO C##app_bank;
+GRANT create view TO C##app_bank;
+GRANT create any trigger TO C##app_bank;
+GRANT create any procedure TO C##app_bank;
+GRANT create sequence TO C##app_bank;
+GRANT create synonym TO C##app_bank;
+
+/*login as C##app_bank user*/
+/*Create Tables with a create schema statement*/
+CREATE SCHEMA AUTHORIZATION C##app_bank
+	CREATE TABLE bank_customers	(  cust_no NUMBER(4),
+     							   cust_lastName VARCHAR2(20),
+     							   cust_firstName VARCHAR2(20)
+     							);
                             
-CREATE TABLE bank_account   (   iban NUMBER(34),
-                                owner VARCHAR2(20),
-                                account_type VARCHAR2(20)
-                            );
+	CREATE TABLE bank_account	(   iban NUMBER(34),
+                                	owner VARCHAR2(20),
+                               	 	account_type VARCHAR2(20)
+                            	);
 
-CREATE TABLE transaktion   (    transactionID NUMBER(32),
-                                positionAccount VARCHAR2(20),
-                                amount Number(32),
-                                recipient VARCHAR2(20),
-                                purpose VARCHAR2(20)
-                            );
+	CREATE TABLE transaction	(   transactionID NUMBER(32),
+                                	positionAccount VARCHAR2(20),
+                                	amount Number(32),
+                                	recipient VARCHAR2(20),
+                                	purpose VARCHAR2(20)
+                            	);
 
 
+/*Grant privileges to the tables for app_bank*/
+GRANT ALL ON bank_customers to C##app_bank;
+GRANT ALL ON bank_account to C##app_bank;
+GRANT ALL ON transaction to C##app_bank;
 
 /*Insert example records */
-
 INSERT INTO bank_customers VALUES (1234, 'Euler', 'Leonhard'); 
 INSERT INTO bank_customers VALUES (5678, 'Einstein', 'Albert');
 INSERT INTO bank_customers VALUES (5678, 'Cooper', 'Sheldon');
 
-/*Access on bank_customers */
-RANT CREATE SESSION TO Euler, Einstein, Cooper;
-GRANT READ ON bank_customers TO 
-###############
+/*login as sysdba*/
+/*Create synonym*/
+CREATE PUBLIC SYNONYM bank_customer
+FOR C##app_bank.bank_customer;
+
+CREATE PUBLIC SYNONYM bank_account
+FOR C##app_bank.bank_account;
+
+CREATE PUBLIC SYNONYM transaction
+FOR C##app_bank.transaction;
 
 /*Create application context*/
 CREATE OR REPLACE CONTEXT bank_accounts_ctx USING bank_accounts_ctx_pkg;
 
 /*Create package to set the context*/
-CREATE OR REPLACE PACKAGE bank_accounts_ctx_pkg IS
+CREATE OR REPLACE PACKAGE bank_accounts_ctx_pkg AS
 	PROCEDURE set_ctx;
 END;
 /
-/Create package body*/
-CREATE OR REPLACE PACKAGE BODY bank_accounts_ctx_pkg IS
-PROCEDURE set_ctx
-AS
-	custnum NUMBER;
-BEGIN
-	SELECT cust_no INTO custnum FROM bank_customers
-	WHERE cust_no = 
-	SYS_CONTEXT('USERENV', 'SESSION_USER');
-	
-	DBMS_SESSION.SET_CONTEXT('bank_accounts_ctx', 'cust_no', custnum); 
-	EXCEPTION 
-		WHEN NO_DATA_FOUND THEN NULL;
- 	END;
+
+/*Create VPD Policy Function*/
+CREATE OR REPLACE PACKAGE customer_security AS
+	FUNCTION account_sec (D1 VARCHAR2, D2 VARCHAR2)
+	RETURN VARCHAR2;
+END;
+/
+
+/*Create package body*/
+CREATE OR REPLACE PACKAGE BODY customer_security AS
+	FUNCTION account_sec (D1 VARCHAR2, D2 VARCHAR2)
+	RETURN VARCHAR2
+	IS
+		v_predicate VARCHAR2(2000);
+	BEGIN
+		v_predicate := 'ID_CUSTOMER =
+		SYS_CONTEXT(''bank_accounts_ctx'', ''ID_CUSTOMER'')';
+		RETURN v_predicate;
+	END;
 END;
 /
 
 /*Create Logon-Trigger*/
-
 CREATE OR REPLACE TRIGGER set_ctx_trig 
 AFTER LOGON ON DATABASE
 BEGIN
 	bank_accounts_ctx_pkg.set_ctx;
 END;
 
-CREATE OR REPLACE FUNCTION get_user_orders( schema_p IN VARCHAR2,
-table_p IN VARCHAR2)
-RETURN VARCHAR2 AS
-orders_pred VARCHAR2 (400); BEGIN
-orders_pred := 'cust_no = SYS_CONTEXT(''orders_ctx'', ''cust_no'')'; RETURN orders_pred;
-END;
+/*Create Security Policy and link to the table*/
+BEGIN
+DBMS_RLS.ADD_Policy(	'C##app_bank',
+						'BANK_CUSTOMERS',
+						'customer_policy',
+						'sys',
+						'customer_security.account_sec',
+						'SELECT, INSERT, UPDATE, DELETE'
+					);
+END;                                   
+
+/
+
+
+############ end code listing
 
 
 
-
+*****weitere Vorschlag für die Allgemeine Beschreibung der VPD********
 
 Dazu wird zuerst in Oracle PL/SQL eine Function implementiert die diese Einschränkung fachlich vornimmt. Diese Funktion enthält die eigentliche Logik wie die Query mit den Input Parameter erweitert werden soll. Anschließend wird diese Function einer Oracle Policy zugewiesen. Einer Tabelle oder View kann diese Policy oder eine Gruppe von Policys zugewiesen werden. Ab diesem Zeitpunkt werden eintreffende SQL Query auf diese Objekt durch die Policy geschleust und es wird eine erhöhte Spalten/Zeilen Sicherheit erreicht. 
 
@@ -154,9 +192,6 @@ Umsetzung Allgemein
 Allgemein gesprochen wird bei jeder SQL Query in der Where Clausel eine weitere Bedingung hinzugefügt die nur Zugriff auf diese Datensätze ermöglicht, welche eindeutig zu der initial übermittelten ID referenziert werden kann.
 In anderem DBMS könnte man sowas mit stored Prozedures und/oder Query rewriting umsetzen. Wir beschäftigen uns in diesem Paper aber nur mit der VPD von Oracle.
 
-
-******OFFENE Punkte ***
-- SQL
 
 
 
