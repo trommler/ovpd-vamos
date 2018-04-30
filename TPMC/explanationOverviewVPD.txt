@@ -117,6 +117,9 @@ INSERT INTO bank_customers VALUES (5678, 'Einstein', 'Albert');
 INSERT INTO bank_customers VALUES (5678, 'Cooper', 'Sheldon');
 
 /*login as sysdba*/
+/*Grant privileges to dbms to C##app_bank */
+GRANT ALL ON dbms_rls to C##app_bank;
+GRANT EXECUTE ON dbms_lock to C##app_bank;
 /*Create synonym*/
 CREATE PUBLIC SYNONYM bank_customer
 FOR C##app_bank.bank_customer;
@@ -137,11 +140,17 @@ END;
 /
 
 /*Create VPD Policy Function*/
-CREATE OR REPLACE PACKAGE customer_security AS
-	FUNCTION account_sec (D1 VARCHAR2, D2 VARCHAR2)
-	RETURN VARCHAR2;
-END;
+BEGIN dbms_rls.add_policy('C##app_bank','BANK_CUSTOMERS','customer_policy','C##appbank','customer_security','SELECT, INSERT, UPDATE, DELETE'); END;
+
+
+
+
+CREATE OR REPLACE FUNCTION customer_security (schema varchar2, object varchar2) return varchar2 
+AS begin
+	RETURN 'PositionAccount = SYS_CONTEXT(''userenv'', ''session_user'')';
+	END;
 /
+
 
 /*Create package body*/
 CREATE OR REPLACE PACKAGE BODY customer_security AS
