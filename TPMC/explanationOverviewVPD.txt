@@ -1,15 +1,21 @@
 Einleitung
 
-Angenommen wir haben eine klassische Three-Tier-Architectur mit einem Browser, einen Application-Server und einem Datenbankserver. Auf dieser Architektur betreiben wir unsere Endanwender Anwendung für unsere Bank.
-Der Customer kann seine Accounts und Transactionen für die einzelnen Accounts online über die Webseite abfragen.
+Eine Bank will das ihre Kunden Ihre Accounts einsehen und die Transaction für die einzelnen Accounts in einer Webanwendung abfragen können.
+Dafür nutzt sie eine gängige Three-Tier-Architecture mit einem Browser, einen Application-Server und einem Datenbankserver. Wichtig zu erwähnen ist, das bei dieser Architecture es meinstens für die Abfrage des vom Datenbankservers vom Applicationserver nur einen Big Application User gibt, und die User der Anwendung nicht in der Datenbank explizit angelegt sind. 
 
-Wir gehen davon aus das es bei unsere Anwendung die Entitäten "Bank Customer", "Bank Account" und "Transaction" gibt.
+IMG 3TArchitecture
+
+Wir gehen davon aus das es bei dieser Anwendung die Entitäten "Bank Customer", "Bank Account" und "Transaction" gibt ( Siehe Bild unten).
 Der Customer wird mit der Customer Number, der Account über seine IBAN und die Transaction über eine ID eindeutig identifiziert.
 
 Das Bild below zeigt das ERD-Diagramm zu unserem Case.
 IMG CASE BANK
 
-Ruft der Customer mit der ID "1" die Bankwebseite auf, loggt sich ein und will alle seine Konten anzeigen lassen, geniert die Webseite eine HTTP-Request für den Applicationserver. Wird dieser nun abgefangen und so manipuliert das in der SQL-Query nicht show Accounts from ID "1" sondern ID "2" steht, könnte die Datenbank überlistet werden und der Customer sieht nun Accounts für die er kein Zugriff hat. Dieser Brocken-Access-Controll beschreibt auch OWASP Top 5 Szenario 1. 
+Ruft der Customer mit der ID "1" die Bankwebseite auf, loggt sich ein, dann werden Ihm alle seine Konten angezeigt.
+Klickt er nun auf ein Konto drauf, generiert die Webseite eine HTTP-Request für den Applicationserver, um alle zugehörigen Transactionen für diesen Account anzuzeigen.
+Wird dieser nun abgefangen und die Parameter der SQL-Query so manipuliert das nicht die Transactions für die Konten von Customer mit der ID "1" abgefragt werden, sondern die von Customer mit der ID "2", könnte die Datenbank überlistet werden und der Customer sieht nun Transactionen für die er kein Zugriff hat. 
+Dieser Brocken-Access-Controll (OWASP Top 5 Szenario 1), funktioniert nur, wenn die Datenbank nicht bei jedem Request nach dem Login überprüft wer diesen Request stellt. 
+
 Um dies zu verhindern wollen wir in der Datenbank die Querys als Secound line of defense nochmalig überprüfen.
 Als Lösung schlagen Roichman and Gudes Parameterized Views vor [Quelle (Fine-grained Access Control to Web Databases)], was wir mit der Virtual Private Database (VPD) von Oracle im nächsten Abschnitt versuchen umzusetzen.
 
