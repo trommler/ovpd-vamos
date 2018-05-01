@@ -65,70 +65,251 @@ Nun wollen wir uns anhand des Beispiels mit den Bankkunden/Bankkonten eine VPD i
 /*Case Bank*/
 
 /*Create Tablespace*/
-/* 'Datafile' define the path to your db, in this case 'orcl' = myDB*/
+/* 'Datafile' define the path to your db, in this case 'orcl12c' = myDB*/
 CREATE SMALLFILE TABLESPACE case_bank
-DATAFILE '/u01/app/oracle/oradata/orcl/case_bank.dbf' SIZE 20M
+DATAFILE '/u01/app/oracle/oradata/orcl12c/case_bank2.dbf' SIZE 20M
 AUTOEXTEND ON NEXT 200K MAXSIZE 2000M;
 
+
 /*Create new User for our example and use our new Tablespace*/
-CREATE USER C##app_bank 
-   IDENTIFIED BY pwd4_app_bank
+alter session set "_ORACLE_SCRIPT"=true;
+CREATE USER bankapp 
+   IDENTIFIED BY pwd4_bankapp
    DEFAULT TABLESPACE case_bank
    QUOTA 20M ON case_bank;
 
 /*Grant privileges to the new user*/
-GRANT create session TO C##app_bank;
-GRANT create table TO C##app_bank;
-GRANT create view TO C##app_bank;
-GRANT create any trigger TO C##app_bank;
-GRANT create any procedure TO C##app_bank;
-GRANT create sequence TO C##app_bank;
-GRANT create synonym TO C##app_bank;
+GRANT create session TO bankapp;
+GRANT create table TO bankapp;
+GRANT create view TO bankapp;
+GRANT create any trigger TO bankapp;
+GRANT create any procedure TO bankapp;
+GRANT create sequence TO bankapp;
+GRANT create synonym TO bankapp;
 
-/*login as C##app_bank user*/
-/*Create Tables with a create schema statement*/
-CREATE SCHEMA AUTHORIZATION C##app_bank
-	CREATE TABLE bank_customers	(  cust_no NUMBER(4),
-     							   cust_lastName VARCHAR2(20),
-     							   cust_firstName VARCHAR2(20)
-     							);
-                            
-	CREATE TABLE bank_account	(   iban NUMBER(34),
-                                	owner VARCHAR2(20),
-                               	 	account_type VARCHAR2(20)
-                            	);
+/*login as bankapp user*/
+/*Create Tables */
+Siehe SQL files;
 
-	CREATE TABLE transaction	(   transactionID NUMBER(32),
-                                	positionAccount VARCHAR2(20),
-                                	amount Number(32),
-                                	recipient VARCHAR2(20),
-                                	purpose VARCHAR2(20)
-                            	);
+/*Grant privileges to the tables for bankapp*/
+GRANT ALL ON bank_customers to bankapp;
+GRANT ALL ON bank_account to bankapp;
+GRANT ALL ON transaction to bankapp;
+
+/*login as sysdba on the db*/
+sqlplus sys/oracle@localhost/orcl12c as sysdba
+oracle
+
+/*Grant privileges to dbms to bankapp */
+grant execute on dbms_rls to system with grant option;
+GRANT CREATE SESSION, CREATE PROCEDURE, CREATE ANY CONTEXT TO BANKAPP;
+GRANT EXECUTE ON DBMS_RLS TO BANKAPP;
 
 
-/*Grant privileges to the tables for app_bank*/
-GRANT ALL ON bank_customers to C##app_bank;
-GRANT ALL ON bank_account to C##app_bank;
-GRANT ALL ON transaction to C##app_bank;
-
-/*Insert example records */
-INSERT INTO bank_customers VALUES (1234, 'Euler', 'Leonhard'); 
-INSERT INTO bank_customers VALUES (5678, 'Einstein', 'Albert');
-INSERT INTO bank_customers VALUES (5678, 'Cooper', 'Sheldon');
-
-/*login as sysdba*/
-/*Grant privileges to dbms to C##app_bank */
-GRANT ALL ON dbms_rls to C##app_bank;
-GRANT EXECUTE ON dbms_lock to C##app_bank;
 /*Create synonym*/
 CREATE PUBLIC SYNONYM bank_customer
-FOR C##app_bank.bank_customer;
+FOR bankappbank_customer;
 
 CREATE PUBLIC SYNONYM bank_account
-FOR C##app_bank.bank_account;
+FOR bankapp.bank_account;
 
 CREATE PUBLIC SYNONYM transaction
-FOR C##app_bank.transaction;
+FOR bankapp.transaction;
+
+
+
+/*Create security admin for the application context and its package*/
+alter session set "_ORACLE_SCRIPT"=true;
+
+CREATE USER secAdm_bank_ctx IDENTIFIED BY pwd4_secAdm;
+GRANT CREATE SESSION, CREATE ANY CONTEXT, CREATE PROCEDURE TO secAdm_bank_ctx;
+GRANT EXECUTE ON DBMS_SESSION TO secAdm_bank_ctx;
+
+/*Connect as secAdm*/
+/*Create global Application Context(GAC)*/
+CREATE CONTEXT global_bank_account_ctx USING bank_account_ctx_pkg ACCESSED GLOBALLY;
+
+/*Create a Package für GAC*/
+CREATE OR REPLACE PACKAGE bank_account_ctx_pkg
+  AS
+	PROCEDURE set_session_id(session_id_p IN NUMBER); 
+	PROCEDURE set_bank_account_ctx(sec_level_attr IN VARCHAR2, 
+	  sec_level_val IN VARCHAR2);
+	PROCEDURE clear_hr_session(session_id_p IN NUMBER);
+	PROCEDURE clear_hr_context;
+  END;
+ /
+
+CREATE OR REPLACE PACKAGE BODY bank_account_ctx_pkg
+	AS
+	session_id_global NUMBER;
+	
+	PROCEDURE set_session_id(session_id_p IN NUMBER) 
+	  AS
+	  BEGIN
+		session_id_global := session_id_p;
+		DBMS_SESSION.SET_IDENTIFIER(session_id_p);
+	 END set_session_id;
+
+	 PROCEDURE set_bank_account_ctx(sec_level_attr IN VARCHAR2, sec_level_val IN VARCHAR2)
+		AS
+		BEGIN
+		 DBMS_SESSION.SET_CONTEXT(
+			namespace  => 'global_bank_account_ctx',
+			attribute  => sec_level_attr,
+			value      => sec_level_val,
+			username   => USER, -- Retrieves the session user, in this case, bankapp_user
+			client_id  => session_id_global);
+		END set_bank_account_ctx;
+
+		PROCEDURE clear_hr_session(session_id_p IN NUMBER)
+			AS
+			BEGIN
+			  DBMS_SESSION.SET_IDENTIFIER(session_id_p);
+			  DBMS_SESSION.CLEAR_IDENTIFIER;
+			END clear_hr_session;
+
+		 PROCEDURE clear_hr_context
+		  AS
+		  BEGIN
+			DBMS_SESSION.CLEAR_CONTEXT('global_bank_account_ctx', session_id_global);
+		  END clear_hr_context;
+		END;
+		/
+
+
+GRANT EXECUTE ON bank_account_ctx_pkg TO BANKAPP;
+
+/*Create the vpd_function for Bank_Account*/
+CREATE OR REPLACE FUNCTION bank_account_sec return varchar2 IS
+v_iban number(34);
+v_owner varchar2(20);
+v_account_type varchar2(20);
+BEGIN
+select IBAN, OWNER, ACCOUNT_TYPE
+into v_iban, v_owner, v_account_type
+from BANK_ACCOUNT
+where OWNER = SYS_CONTEXT('USERENV', 'SESSION_USER');
+return 'IBAN = '|| v_iban;
+end;
+
+
+
+
+/*add policy to table*/
+BEGIN
+	DBMS_RLS.ADD_POLICY(
+		object_schema 	=>'bankapp',
+		object_name		=>'BANK_ACCOUNT',
+		policy_name		=>'account_policy',
+		function_schema	=>'secAdm_bank_ctx',
+		policy_function	=>'bank_account_sec'	
+	);
+END;
+/
+
+/*Policy dont work with */	
+statement_types	=>'SELECT, INSERT, UPDATE, DELETE'
+
+
+/*Test the GlobalContext*/
+EXEC secAdm_bank_ctx.bank_account_ctx_pkg.set_bank_account_ctx('Cust_NO', '1234');
+SELECT SYS_CONTEXT('global_bank_account_ctx', 'Cust_NO') Cust_NO FROM DUAL;
+
+
+
+/*compile errors*/
+show errors
+
+
+SELECT * FROM BANK_CUSTOMERS;
+SELECT COUNT(*) from BANK_CUSTOMERS;
+
+SELECT * FROM BANK_ACCOUNT;
+SELECT COUNT(*) from BANK_ACCOUNT;
+
+SELECT * FROM TRANSACTION;
+SELECT COUNT(*) from TRANSACTION;
+
+
+
+/*Test the SessionID*/
+EXEC secAdm_bank_ctx.bank_account_ctx_pkg.set_session_id(34256);
+SELECT SYS_CONTEXT('userenv', 'client_identifier') FROM DUAL;
+EXEC secAdm_bank_ctx.bank_account_ctx_pkg.set_bank_account_ctx('Benefit Level', 'Highest');
+SYS_CONTEXT('global_bank_account_ctx', 'Benefit Level') benefit_level FROM DUAL;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CREATE USER bankapp IDENTIFIED BY pwd4_bankapp
+CREATE USER secAdm_bank_ctx IDENTIFIED BY pwd4_secAdm;
+	
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*Create a policy Group*/
+BEGIN 
+	DBMS_RLS.CREATE_POLICY_GROUP
+	(
+		object_schema	=>'bankapp',
+		object_name		=>'BANK_ACCOUNT',
+		policy_group	=>'bankapp_group'
+	);
+END;
+/
+
+
+
+
+
+CREATE OR REPLACE FUNCTION vpd_function_provider_a 
+(schema in varchar2, tab in varchar2) return varchar2 as
+predicate varchar2(8) default NULL;
+BEGIN
+	IF LOWER(SYS_CONTEXT('USERENV','CLIENT_IDENTIFIER')) = 'provider_a' 
+		THEN predicate := '1=2';
+		ELSE NULL;
+	END IF;
+	RETURN predicate;
+END;
+/
+
+
+
+C
+
+
+
+
+
 
 /*Create application context*/
 CREATE OR REPLACE CONTEXT bank_accounts_ctx USING bank_accounts_ctx_pkg;
@@ -140,7 +321,15 @@ END;
 /
 
 /*Create VPD Policy Function*/
-BEGIN dbms_rls.add_policy('C##app_bank','BANK_CUSTOMERS','customer_policy','C##appbank','customer_security','SELECT, INSERT, UPDATE, DELETE'); END;
+BEGIN dbms_rls.add_policy(
+'bankapp',
+'BANK_CUSTOMERS',
+'customer_policy',
+'bankapp',
+'customer_security',
+'SELECT, INSERT, UPDATE, DELETE'
+);
+ END;
 
 
 
@@ -175,7 +364,7 @@ END;
 
 /*Create Security Policy and link to the table*/
 BEGIN
-DBMS_RLS.ADD_Policy(	'C##app_bank',
+DBMS_RLS.ADD_Policy(	'bankapp',
 						'BANK_CUSTOMERS',
 						'customer_policy',
 						'sys',
