@@ -26,8 +26,12 @@ Die Idee der Parameterized Views (PV)(Roichman und Gudes) werden wir nun mit der
  
 Eine wichtige Vorraussetzung für PV ist, das der Datenbank (DB) die Authentifiaction des aktuellen Nutzers mitgeteilt wird, er wird mit application ssession key (AS-key) umgesetzt, für die höhere Sicherheit noch mit dem rolling key verfahren ergänzt (Roichman und Gudes). 
 
-Intern wird dies mit dem Global Application Context (GAC) umgesetzt.
-Diese Name => Value Store speichert für jede Application in einem globalen Variablen Speicher die benötigten Daten, um einen Sessionless access over a connectionpool zu ermöglichen. Da wird die SessionId, des Security Token und die UserID vom Applicationserver für jeden einzelnen Anwendungsuser gespeichert, und für die Datenbankabfrage bereitgestellt.
+Um Daten und User zu speichern, gibt es in der Oracle DB unterschiedliche Arten von Contexten.
+Local Application Context (LAC), Global Application Context (GAC) und Client-Session Based Applicatin Context (CSBAC). Wir haben uns für den GAC entschieden, da dieser Context für unsere 3-Tier-Architecture mit Connectionspools am besten geeignet ist. Auf die anderne Contexte gehen wir aus Relevanzgründen nicht näher ein.
+
+Quelle ( Das umfassende Handbuch 12c 11.3.1 Applications Context)
+
+Der GAC ist ein Name => Value Store und speichert für jede Application in einem globalen Variablen Speicher die benötigten Daten, um einen Sessionless access zu ermöglichen. Da wird die SessionId, des Security Token und die UserID vom Applicationserver für jeden einzelnen Anwendungsuser gespeichert, und für die Datenbankabfrage bereitgestellt.
 
 Details entnehmen Sie bitte dem Oracle Security Guide 12c (July 2017, Section 9-2, Page 318).
 
@@ -38,8 +42,20 @@ In PV spielt die Parameter Methode die größte Rolle da sie die eigentliche Ein
 Um nun ein Object like a table,view oder synonym mit dieser Policy-function zu schützen, d.h. eine PV zu erzeugen, wird die Policy-function mit hilfe der DBMS_RLS.ADD_POLICY procedure über eine VPD-Policy einem Object like a table,view oder synonyms zugewiesen werden. Dies garantiert das die Policy-function can not be bypass from the query and a valide predicate must be append on every Query. The Parameters Tampering attack wich was described in Broken Access control (BAC)(OWASP top 5,sezenario 1) and (Roichman und Gudes), can now detected and the attacker can´t see other data outside the PV with Datarecords which contains releated Information to his AS-key/ID. Das führt zu einer Row-Level-Security, da nur Rows des aktuell authorisierten Users angezeigt werden.
 
 
+Policy function for case bank (SQL):
 
 
+
+Example Thesis
+
+Haben wir nun ein Szenario, in dem eine Tabelle mehrere Fremdschlüsselbeziehungen aus unterschiedlichen Tabellen hat, muss die Policy function wie folgt angepasst werden.
+
+angepasste Policy function for case thesis(SQL):
+
+
+Example Language
+
+angepasste Policy function for case Langugage(SQL):
 
 
 
@@ -72,11 +88,9 @@ Bei der prodecure DBMS_RLS.ADD_POLICY ist es wichtig das man die statement_types
 
 Quelle (Securityguide 12c 2017)
 
-Neben den oben genannten Policy Typen, die sich Hauptsächlich durch die Verarbeitung und Performance (zb. Caching) unterscheiden, gibt es noch unterschiedliche Arten von Contexten.
+Die oben genannten Policy Typen, unterscheiden sich Hauptsächlich durch die Verarbeitung und Performance der einzelnen Querys.
 
-Local Application Context (LAC), Global Application Context (GAC) und Client-Session Based Applicatin Context (CSBAC). Wir haben uns für den GAC entschieden, da dieser Context für unsere 3-Tier-Architektur mit Connectionspools am besten geeignet ist.
 
-Quelle ( Das umfassende Handbuch 12c 11.3.1 Applications Context)
 
 
 
