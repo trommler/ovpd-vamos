@@ -59,28 +59,13 @@ angepasste Policy function for case Langugage(SQL):
 
 
 
-
-
-
-
-***Vielleicht als Ergänzung *****
-Grundlegend ist es auch möglich vorher definierte Colums für manchen User gar nicht bzw. nur als "Null" zurückzugeben. Die hier erreichte Row/Colum-Level-Security dies kann aber zu unerwartete Fehler in der Anwendung führen, sollte diese solche Antworten falsch interpretieren oder nicht abfangen.
-***********************************
-
 Natürlich ist es noch immer möglich SQL-Injection Attacken zu fahren, diese werden hier aber nicht nähere betrachtet, da Sie relativ einfach verhindert (z.b. durch Prepared Statements, leichter erkennbar sind als BAC´s und auf Daten anderer keine Auswirkung mehr haben, weil die PV nur noch die Daten der anfragenenden ID zurückgibt.
 
 
 Policy Typen der VPD
+!!!our choice is context sensitive!!!!!
 
-Für unterschiedliche Einsatzzwecke gibt es 5 verschieden Arten von Policys im Oracle Paket DBMS_RLS, die hier in Kurzfassung aufgelistet sind:
-
-- Dynamic 					=> Hier wird bei jeder Query das Predicate neu berechnet, Langsam aber wichtig bei 								zeitlichen abhängigkeiten ( Prüfungszeitraum usw.)
-- Static 					=> Hier wird das Predicate gecached und die Last reduziert
-- Shared_Static 			=> wie static aber kann auf mehreren Objecten der Datenbank genutzt werden ( Big Data)
-- Context_Sensitive 		=> Wird beim Parsen und beim context change neu berechnet, interessant bei Three-tier 								Architektur und Session Pooling für unterschiedliche Gruppen innerhalb der Applikation
-- Shared_Context_Sensitive 	=> Wird beim ersten referenzieren des objectes berechnet, geeignet wieder Policys mit 								mehreren Objectes
-
-Quelle ( Security Guide Policy Types diagramm)
+This policy type does not optimize database performance as the static and context sensitive policy types do. However, Oracle recommends that before you set policies as either static or context-sensitive, you should first test them as DYNAMIC policy types, which run every time. Testing policy functions as DYNAMIC policies first enables you to observe how the policy function affects each query, because nothing is cached. 
 
 ****hint to enforce Statement types****
 Bei der prodecure DBMS_RLS.ADD_POLICY ist es wichtig das man die statement_types (SELECT, INSERT, UPDATE, INDEX, and DELETE) explizit angibt, für die diese Policy gelten soll, lässt man die Werte auf Default, dann gilt  die Policy nicht für INDEX, was wieder rum eine Sicherheitslücke darstellen kann. 
@@ -88,7 +73,31 @@ Bei der prodecure DBMS_RLS.ADD_POLICY ist es wichtig das man die statement_types
 
 Quelle (Securityguide 12c 2017)
 
-Die oben genannten Policy Typen, unterscheiden sich Hauptsächlich durch die Verarbeitung und Performance der einzelnen Querys.
+
+Verallgemeinerung der Cases für die Zuordnung zur Policy (compiler):
+
+CASE 1
+Befindet sich in einer Tabelle "A" der PK welcher in der Tabelle "B" der FK ist und gibt es einen PK in der Tabelle "B"
+der FK in der Tabelle "C" ist, so benötigt man in der VPD eine function mit den folgenden Variablen:
+
+/*SQL for CASE 1*/
+
+
+CASE 2
+Befindet sich in einer Tabelle "A" der FK der in der Tabelle "B" auf einen anderen FK verweist und in der Tabelle "C" eindeutig auf den PK der Tabelle "C" hindeutet, so benötigt man in der VPD eine function mit den folgenden Variablen:
+
+
+CASE 3
+Befindet sich in einer Tabelle "A" eine PK der FK in der Tabelle "B" ist und ein PK in einer Tabelle "C" der auch FK in der Tabelle "B" ist, so benötigt man in der VPD eine function mit den folgenden Variablen:
+
+
+
+
+
+
+
+
+
 
 
 
