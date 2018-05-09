@@ -83,10 +83,211 @@ Quelle (Securityguide 12c 2017)
 Verallgemeinerung der Cases für die Zuordnung zur Policy (compiler):
 
 CASE 1
-Befindet sich in einer Tabelle "A" der PK welcher in der Tabelle "B" der FK ist und gibt es einen PK in der Tabelle "B"
-der FK in der Tabelle "C" ist, so benötigt man in der VPD eine function mit den folgenden Variablen:
+Befindet sich in einer Tabelle "A" der PK "pa" welcher in der Tabelle "B" der FK "fb" ist und gibt es einen PK "pb" in der Tabelle "B" 
+der FK "fc" in der Tabelle "C" ist, so benötigt man in der VPD eine function mit den folgenden Variablen:
+
+CASE 1 simple:
+Befindet sich in einer Tabelle "A" der PK "pa" welcher in der Tabelle "B" der FK "fb" ist, so benötigt man in der VPD eine function mit den folgenden Variablen:
+
+/*SQL for CASE 1 simple*/
+CREATE OR REPLACE FUNCTION case_1_simple_policy (obj_schema varchar2, obj_name varchar2) RETURN varchar2
+ is                
+ BEGIN
+   select IBAN, OWNER, ACCOUNT_TYPE
+   from B
+   INNER JOIN A ON B.fb = A.pa
+   where pa = SYS_CONTEXT('A.pa', 'id');
+   return 'IBAN = '|| v_iban;
+   
+ END;
+
 
 /*SQL for CASE 1*/
+/*create context*/
+CREATE CONTEXT global_bank_ctx USING bank_ctx_pkg ACCESSED GLOBALLY;
+/*create package*/
+CREATE OR REPLACE PACKAGE bank_ctx_pkg AS
+	PROCEDURE set_bank_ctx(owner IN VARCHAR2);
+	PROCEDURE set_session_id(session_id_p IN NUMBER);
+	PROCEDURE clear_bank_session(session_id_p IN NUMBER);
+	PROCEDURE clear_bank_ctx;
+END;
+/
+/*create body*/
+CREATE OR REPLACE PACKAGE BODY bank_ctx_pkg
+	AS
+    session_id_global NUMBER;
+    PROCEDURE set_session_id(session_id_p IN NUMBER) AS
+	BEGIN
+		session_id_global := session_id_p;
+        DBMS_SESSION.SET_IDENTIFIER(session_id_p);
+	END set_session_id;
+	PROCEDURE set_bank_ctx(owner IN VARCHAR2) AS
+	BEGIN
+		DBMS_SESSION.SET_CONTEXT( 
+			namespace 	=> 'global_bank_ctx',
+			attribute 	=>'bank_acc',
+			value 		=> owner,
+			username 	=> USER, -- Session user,
+			client_id 	=> session_id_global
+			);
+	END set_bank_ctx;
+	PROCEDURE clear_bank_session(session_id_p IN NUMBER) AS
+	BEGIN 
+		DBMS_SESSION.SET_IDENTIFIER(session_id_p);
+		DBMS_SESSION.CLEAR_IDENTIFIER;
+	END clear_bank_session;
+	PROCEDURE clear_bank_ctx AS
+	BEGIN
+		DBMS_SESSION.CLEAR_CONTEXT('global_bank_ctx', 'bank_acc');
+	END clear_bank_ctx;
+	
+END;
+/
+
+/*grant rights*/
+GRANT EXECUTE ON bank_ctx_pkg TO appbank;
+
+/*check compiling*/
+show errors;
+
+
+
+/*test that as appbank*/
+BEGIN 
+    system.bank_ctx_pkg.set_session_id(34256);
+END;
+
+/*Set the session ID:*/
+EXEC system.bank_ctx_pkg.set_session_id(34256);
+
+/*Check the session ID:*/
+SELECT SYS_CONTEXT('userenv', 'client_identifier') FROM DUAL;
+
+/*set context manuell*/
+EXEC system.bank_ctx_pkg.set_bank_ctx('1234');
+
+/*check the context*/
+SELECT SYS_CONTEXT('global_bank_ctx', 'bank_acc') owner FROM DUAL;
+
+/*clear session*/
+EXEC system.bank_ctx_pkg.clear_bank_session(34256);
+
+/*check the context*/
+SELECT SYS_CONTEXT('global_bank_ctx', 'bank_acc') owner FROM DUAL;
+
+/*clear context values*/
+EXEC system.bank_ctx_pkg.clear_bank_ctx;
+
+/*check the context*/
+SELECT SYS_CONTEXT('global_bank_ctx', 'bank_acc') owner FROM DUAL;
+
+
+/*Drop Policy*/
+EXEC DBMS_RLS.DROP_POLICY('appbank','BANK_ACCOUNT','case1simple');
+
+
+
+
+
+
+
+
+
+
+/*KOMPILIERT UNTER APPBANK*/
+CREATE OR REPLACE FUNCTION case_1_simple_policy (obj_schema varchar2, obj_name varchar2) RETURN varchar2
+ IS
+ v_iban number(34);
+ v_owner varchar2(20);
+ v_account_type varchar2(20);  
+ BEGIN
+   select IBAN, OWNER, ACCOUNT_TYPE
+   into v_iban, v_owner, v_account_type
+   from BANK_ACCOUNT
+   INNER JOIN BANK_CUSTOMERS ON BANK_ACCOUNT.OWNER = BANK_CUSTOMERS.CUST_NO
+   where OWNER = SYS_CONTEXT('USERENV', 'SESSION_USER');
+   return 'IBAN = '|| v_iban; 
+ END;
+ /
+/*KOMPILIERT UNTER APPBANK*/
+
+
+/*KOMPILIERT UNTER APPBANK*/
+CREATE OR REPLACE FUNCTION case_1_simple_policy (obj_schema varchar2, obj_name varchar2) RETURN varchar2
+ IS
+v_iban number(34);
+v_owner varchar2(20);
+v_account_type varchar2(20);            
+ BEGIN
+   SELECT "A1"."IBAN_0" "IBAN","A1"."OWNER_1" "OWNER","A1"."ACCOUNT_TYPE_2" "ACCOUNT_TYPE"
+   INTO v_iban, v_owner, v_account_type
+   FROM  (SELECT "A3"."IBAN" "IBAN_0","A3"."OWNER" "OWNER_1","A3"."ACCOUNT_TYPE" "ACCOUNT_TYPE_2","A2"."CUST_NO" "CUST_NO" 
+   FROM "APPBANK"."BANK_ACCOUNT" "A3","APPBANK"."BANK_CUSTOMERS" "A2" WHERE "A3"."OWNER"="A2"."CUST_NO") "A1" 
+   WHERE "A1"."OWNER_1"=SYS_CONTEXT('USERENV','SESSION_USER');
+   return v_iban;
+ END;
+ /
+/*KOMPILIERT UNTER APPBANK*/
+
+
+/*ADD Policy*/
+BEGIN
+	DBMS_RLS.ADD_POLICY(
+		object_schema 	=>'appbank',
+		object_name		=>'BANK_ACCOUNT',
+		policy_name		=>'case1simple',
+		function_schema	=>'global_bank_ctx',
+		policy_function	=>'case_1_simple_policy',
+        statement_types =>'SELECT,UPDATE,DELETE'
+	);
+END;
+/
+/*kompiliert unter sys*/
+CREATE OR REPLACE PACKAGE bank_account_ctx_pkg
+  AS
+	PROCEDURE set_session_id(session_id_p IN NUMBER); 
+	PROCEDURE set_bank_account_ctx(sec_level_attr IN VARCHAR2, 
+	  sec_level_val IN VARCHAR2);
+  END;
+ /
+/*kompiliert unter sys*/
+
+
+
+
+
+
+
+
+
+
+
+
+CREATE OR REPLACE FUNCTION text_for_id (id_in IN data_by_user.id%TYPE)
+    RETURN data_by_user.text%TYPE
+IS 
+BEGIN
+   return priv_text_for_id (
+            id_in
+          , SYS_CONTEXT ('USERENV', 'CLIENT_IDENTIFIER')
+          , SYS_CONTEXT ('USERENV', 'HOST')
+          , SYS_CONTEXT ('My_app_context', 'Favorite Flavor')
+          );
+END text_for_id;
+/
+
+
+
+
+select IBAN, OWNER, ACCOUNT_TYPE
+into v_iban, v_owner, v_account_type
+from BANK_ACCOUNT
+where OWNER = SYS_CONTEXT('USERENV', 'SESSION_USER');
+return 'IBAN = '|| v_iban;
+
+
+
 
 
 CASE 2
