@@ -196,18 +196,18 @@ EXEC DBMS_RLS.DROP_POLICY('appbank','BANK_ACCOUNT','case1simple');
 
 
 /*KOMPILIERT UNTER APPBANK*/
-CREATE OR REPLACE FUNCTION case_1_simple_policy (obj_schema varchar2, obj_name varchar2) RETURN varchar2
+CREATE OR REPLACE FUNCTION case_1_simple_policy (obj_schema VARCHAR2, obj_name VARCHAR2) RETURN varchar2
  IS
- v_iban number(34);
- v_owner varchar2(20);
- v_account_type varchar2(20);  
+ v_iban NUMBER(34);
+ v_owner VARCHAR2(20);
+ v_account_type VARCHAR2(20);  
  BEGIN
-   select IBAN, OWNER, ACCOUNT_TYPE
-   into v_iban, v_owner, v_account_type
-   from BANK_ACCOUNT
+   SELECT IBAN, OWNER, ACCOUNT_TYPE
+   INTO v_iban, v_owner, v_account_type
+   FROM BANK_ACCOUNT
    INNER JOIN BANK_CUSTOMERS ON BANK_ACCOUNT.OWNER = BANK_CUSTOMERS.CUST_NO
-   where OWNER = SYS_CONTEXT('USERENV', 'SESSION_USER');
-   return 'IBAN = '|| v_iban; 
+   WHERE OWNER = SYS_CONTEXT('USERENV', 'SESSION_USER');
+   RETURN 'IBAN = '|| v_iban;
  END;
  /
 /*KOMPILIERT UNTER APPBANK*/
@@ -255,36 +255,6 @@ CREATE OR REPLACE PACKAGE bank_account_ctx_pkg
 
 
 
-
-
-
-
-
-
-
-
-
-CREATE OR REPLACE FUNCTION text_for_id (id_in IN data_by_user.id%TYPE)
-    RETURN data_by_user.text%TYPE
-IS 
-BEGIN
-   return priv_text_for_id (
-            id_in
-          , SYS_CONTEXT ('USERENV', 'CLIENT_IDENTIFIER')
-          , SYS_CONTEXT ('USERENV', 'HOST')
-          , SYS_CONTEXT ('My_app_context', 'Favorite Flavor')
-          );
-END text_for_id;
-/
-
-
-
-
-select IBAN, OWNER, ACCOUNT_TYPE
-into v_iban, v_owner, v_account_type
-from BANK_ACCOUNT
-where OWNER = SYS_CONTEXT('USERENV', 'SESSION_USER');
-return 'IBAN = '|| v_iban;
 
 
 
